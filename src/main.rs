@@ -176,6 +176,37 @@ mod grid {
         grid.concat()
     }
 
+    fn get_grid_value<T>(row: usize, column: usize, grid: &Vec<Vec<T>>) -> Option<T>
+    where
+        T: Clone,
+    {
+        let grid_values = grid.iter()
+            .enumerate()
+            .flat_map(|(row_index, row_values)| {
+                row_values
+                    .iter()
+                    .enumerate()
+                    .map(|(column_index, value)| (row_index, column_index, value))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let found = grid_values
+            .iter()
+            .filter_map(|&(x, y, v)| {
+                if x == row && y == column {
+                    Some(v)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if found.is_empty() {
+            None
+        } else {
+            Some(found[0].clone())
+        }
+    }
+
     #[cfg(test)]
     mod tests {
         #[test]
@@ -217,6 +248,13 @@ mod grid {
                     .clone())),
                 [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
             );
+        }
+        #[test]
+        fn test_get_grid_value() {
+            let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
+            use grid::get_grid_value;
+            assert_eq!(get_grid_value(0, 0, &grid), Some(1));
+            assert_eq!(get_grid_value(100, 100, &grid), None);
         }
     }
 }
