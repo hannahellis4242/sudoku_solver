@@ -1,0 +1,6 @@
+[package]
+name = "sudoku_solver2"
+version = "0.1.0"
+authors = ["Hannah Ellis <hannahellis4242@gmail.com>"]
+
+[dependencies]
