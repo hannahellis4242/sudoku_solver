@@ -136,28 +136,39 @@ mod grid {
             &found[0]
         }
     }
-    /*
-fn populate<T,F>(rows: usize, columns: usize ,f:F) -> Vec<T>
-where
-    T: Clone,
-    F : Fn(usize,usize)->T,
-{
-    (0..)
-    .take(rows).flat_map(|x|{
-        (0..).take(columns).map(|y| f(x,y)).collect::<Vec<T>>()
-        }).collect::<Vec<T>>()
-    /*(0..)
-        .take(rows)
-        .flat_map(|x| {
-            (0..)
-                .take(columns)
-                .map(|y| (x, y))
-                .collect::<Vec<_>>()
-        })
-        .map(|(x, y)| get_value(x, y, values, a)
-        .collect::<Vec<_>>()*/
-}
-*/
+
+    fn populate<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
+    where
+        T: Clone,
+        F: Fn(usize, usize) -> T,
+    {
+        (0..)
+            .take(rows)
+            .flat_map(|x| {
+                (0..)
+                    .take(columns)
+                    .map(|y| f(x, y).clone())
+                    .collect::<Vec<T>>()
+            })
+            .collect::<Vec<T>>()
+    }
+
+    fn create_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<Vec<T>>
+    where
+        T: Clone,
+        F: Fn(usize, usize) -> T,
+    {
+        (0..)
+            .take(rows)
+            .map(|x| {
+                (0..)
+                    .take(columns)
+                    .map(|y| f(x, y).clone())
+                    .collect::<Vec<T>>()
+            })
+            .collect::<Vec<Vec<T>>>()
+    }
+
     #[cfg(test)]
     mod tests {
         #[test]
@@ -165,6 +176,28 @@ where
             let values = [(0, 0, "Hello"), (2, 3, "World")];
             use grid::get_value;
             assert_eq!(get_value(&0, &0, &values, &"Default"), &"Hello");
+            assert_eq!(get_value(&2, &3, &values, &"Default"), &"World");
+            assert_eq!(get_value(&1, &1, &values, &"Default"), &"Default");
+        }
+        #[test]
+        fn test_populate() {
+            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+            use grid::populate;
+            use grid::get_value;
+            assert_eq!(
+                populate(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
+                [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
+            );
+        }
+        #[test]
+        fn test_create_grid() {
+            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+            use grid::create_grid;
+            use grid::get_value;
+            assert_eq!(
+                create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
+                [[1, 0, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]]
+            );
         }
     }
 }
