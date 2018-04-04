@@ -137,7 +137,7 @@ mod grid {
         }
     }
 
-    fn populate<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
+    fn create_flat_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
     where
         T: Clone,
         F: Fn(usize, usize) -> T,
@@ -169,6 +169,13 @@ mod grid {
             .collect::<Vec<Vec<T>>>()
     }
 
+    fn flatten_grid<T>(grid: Vec<Vec<T>>) -> Vec<T>
+    where
+        T: Clone,
+    {
+        grid.concat()
+    }
+
     #[cfg(test)]
     mod tests {
         #[test]
@@ -180,12 +187,12 @@ mod grid {
             assert_eq!(get_value(&1, &1, &values, &"Default"), &"Default");
         }
         #[test]
-        fn test_populate() {
+        fn test_create_flat_grid() {
             let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-            use grid::populate;
+            use grid::create_flat_grid;
             use grid::get_value;
             assert_eq!(
-                populate(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
+                create_flat_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
                 [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
             );
         }
@@ -197,6 +204,18 @@ mod grid {
             assert_eq!(
                 create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
                 [[1, 0, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]]
+            );
+        }
+        #[test]
+        fn test_flatten_grid() {
+            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+            use grid::create_grid;
+            use grid::get_value;
+            use grid::flatten_grid;
+            assert_eq!(
+                flatten_grid(create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0)
+                    .clone())),
+                [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
             );
         }
     }
