@@ -1,32 +1,4 @@
-/*use std::collections::HashMap;
-
-#[derive(Debug, Clone, PartialEq)]
-enum Square {
-    Fix(char),
-    Var(char),
-    Blank,
-}
-
-impl Square {
-    fn fixed(x: char) -> Square {
-        Square::Fix(x)
-    }
-    fn variable(x: char) -> Square {
-        Square::Var(x)
-    }
-    fn blank() -> Square {
-        Square::Blank
-    }
-
-    fn as_char(&self) -> char {
-        match *self {
-            Square::Fix(x) => x,
-            Square::Var(x) => x,
-            Square::Blank => ' ',
-        }
-    }
-}
-
+/*
 struct Vector<T> {
     value: Vec<T>,
 }
@@ -86,22 +58,6 @@ impl<T> Grid<T> {
     }
 }
 
-fn contains_duplicates<T>(x: &[T]) -> bool
-where
-    T: PartialEq,
-{
-    match x.split_first() {
-        Some((y, ys)) => {
-            if ys.contains(y) {
-                true
-            } else {
-                contains_duplicates(ys)
-            }
-        }
-        None => false,
-    }
-}
-
 fn check_rule(squares: &Vector<Square>, rule: &[bool]) -> bool {
     let y = squares
         .mask(rule)
@@ -113,148 +69,246 @@ fn check_rule(squares: &Vector<Square>, rule: &[bool]) -> bool {
     !contains_duplicates(&y)
 }
 */
-mod grid {
-    fn get_value<'a, T>(
-        row: &usize,
-        column: &usize,
-        values: &'a [(usize, usize, T)],
-        d: &'a T,
-    ) -> &'a T {
-        let found = values
-            .iter()
-            .filter_map(|&(x, y, ref z)| {
-                if x == *row && y == *column {
-                    Some(z.clone())
-                } else {
-                    None
+
+mod sudoku {
+    #[derive(Debug, Clone, PartialEq)]
+    enum Square {
+        Fix(char),
+        Var(char),
+        Blank,
+    }
+
+    impl Square {
+        fn fixed(x: char) -> Square {
+            Square::Fix(x)
+        }
+        fn variable(x: char) -> Square {
+            Square::Var(x)
+        }
+        fn blank() -> Square {
+            Square::Blank
+        }
+
+        fn as_char(&self) -> char {
+            match *self {
+                Square::Fix(x) => x,
+                Square::Var(x) => x,
+                Square::Blank => ' ',
+            }
+        }
+    }
+
+    mod grid {
+        fn get_value<'a, T>(
+            row: &usize,
+            column: &usize,
+            values: &'a [(usize, usize, T)],
+            d: &'a T,
+        ) -> &'a T {
+            let found = values
+                .iter()
+                .filter_map(|&(x, y, ref z)| {
+                    if x == *row && y == *column {
+                        Some(z.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            if found.is_empty() {
+                d
+            } else {
+                &found[0]
+            }
+        }
+
+        fn create_flat_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
+        where
+            T: Clone,
+            F: Fn(usize, usize) -> T,
+        {
+            (0..)
+                .take(rows)
+                .flat_map(|x| {
+                    (0..)
+                        .take(columns)
+                        .map(|y| f(x, y).clone())
+                        .collect::<Vec<T>>()
+                })
+                .collect::<Vec<T>>()
+        }
+
+        fn create_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<Vec<T>>
+        where
+            T: Clone,
+            F: Fn(usize, usize) -> T,
+        {
+            (0..)
+                .take(rows)
+                .map(|x| {
+                    (0..)
+                        .take(columns)
+                        .map(|y| f(x, y).clone())
+                        .collect::<Vec<T>>()
+                })
+                .collect::<Vec<Vec<T>>>()
+        }
+
+        fn flatten_grid<T>(grid: Vec<Vec<T>>) -> Vec<T>
+        where
+            T: Clone,
+        {
+            grid.concat()
+        }
+
+        pub fn get_grid_value<T>(row: usize, column: usize, grid: &Vec<Vec<T>>) -> Option<T>
+        where
+            T: Clone,
+        {
+            let grid_values = grid.iter()
+                .enumerate()
+                .flat_map(|(row_index, row_values)| {
+                    row_values
+                        .iter()
+                        .enumerate()
+                        .map(|(column_index, value)| (row_index, column_index, value))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            let found = grid_values
+                .iter()
+                .filter_map(|&(x, y, v)| {
+                    if x == row && y == column {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            if found.is_empty() {
+                None
+            } else {
+                Some(found[0].clone())
+            }
+        }
+
+        #[cfg(test)]
+        mod tests {
+            #[test]
+            fn test_get_value() {
+                let values = [(0, 0, "Hello"), (2, 3, "World")];
+                use sudoku::grid::get_value;
+                assert_eq!(get_value(&0, &0, &values, &"Default"), &"Hello");
+                assert_eq!(get_value(&2, &3, &values, &"Default"), &"World");
+                assert_eq!(get_value(&1, &1, &values, &"Default"), &"Default");
+            }
+            #[test]
+            fn test_create_flat_grid() {
+                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+                use sudoku::grid::create_flat_grid;
+                use sudoku::grid::get_value;
+                assert_eq!(
+                    create_flat_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
+                    [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
+                );
+            }
+            #[test]
+            fn test_create_grid() {
+                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+                use sudoku::grid::create_grid;
+                use sudoku::grid::get_value;
+                assert_eq!(
+                    create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
+                    [[1, 0, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]]
+                );
+            }
+            #[test]
+            fn test_flatten_grid() {
+                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
+                use sudoku::grid::create_grid;
+                use sudoku::grid::get_value;
+                use sudoku::grid::flatten_grid;
+                assert_eq!(
+                    flatten_grid(create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0)
+                        .clone())),
+                    [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
+                );
+            }
+            #[test]
+            fn test_get_grid_value() {
+                let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
+                use sudoku::grid::get_grid_value;
+                assert_eq!(get_grid_value(0, 0, &grid), Some(1));
+                assert_eq!(get_grid_value(100, 100, &grid), None);
+            }
+        }
+    }
+
+    mod rule {
+        fn mask<T>(grid_values: Vec<Vec<T>>, indices: &[(usize, usize)]) -> Vec<T>
+        where
+            T: Clone,
+        {
+            use sudoku::grid::get_grid_value;
+            indices
+                .iter()
+                .filter_map(|&(x, y)| get_grid_value(x, y, &grid_values))
+                .collect::<Vec<T>>()
+        }
+
+        fn contains_duplicates<T>(x: &[T]) -> bool
+        where
+            T: PartialEq,
+        {
+            match x.split_first() {
+                Some((y, ys)) => {
+                    if ys.contains(y) {
+                        true
+                    } else {
+                        contains_duplicates(ys)
+                    }
                 }
-            })
-            .collect::<Vec<_>>();
-        if found.is_empty() {
-            d
-        } else {
-            &found[0]
+                None => false,
+            }
         }
-    }
+        use sudoku::Square;
+        fn check_rule(g: Vec<Vec<Square>>, rule: &[(usize, usize)]) -> bool {
+            let values = mask(g, rule);
+            return !contains_duplicates(&values);
+        }
 
-    fn create_flat_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
-    where
-        T: Clone,
-        F: Fn(usize, usize) -> T,
-    {
-        (0..)
-            .take(rows)
-            .flat_map(|x| {
-                (0..)
-                    .take(columns)
-                    .map(|y| f(x, y).clone())
-                    .collect::<Vec<T>>()
-            })
-            .collect::<Vec<T>>()
-    }
-
-    fn create_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<Vec<T>>
-    where
-        T: Clone,
-        F: Fn(usize, usize) -> T,
-    {
-        (0..)
-            .take(rows)
-            .map(|x| {
-                (0..)
-                    .take(columns)
-                    .map(|y| f(x, y).clone())
-                    .collect::<Vec<T>>()
-            })
-            .collect::<Vec<Vec<T>>>()
-    }
-
-    fn flatten_grid<T>(grid: Vec<Vec<T>>) -> Vec<T>
-    where
-        T: Clone,
-    {
-        grid.concat()
-    }
-
-    fn get_grid_value<T>(row: usize, column: usize, grid: &Vec<Vec<T>>) -> Option<T>
-    where
-        T: Clone,
-    {
-        let grid_values = grid.iter()
-            .enumerate()
-            .flat_map(|(row_index, row_values)| {
-                row_values
-                    .iter()
-                    .enumerate()
-                    .map(|(column_index, value)| (row_index, column_index, value))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let found = grid_values
-            .iter()
-            .filter_map(|&(x, y, v)| {
-                if x == row && y == column {
-                    Some(v)
-                } else {
-                    None
+        #[cfg(test)]
+        mod tests {
+            #[test]
+            fn test_mask() {
+                use sudoku::rule::mask;
+                let values = vec![vec![1, 2, 3, 4], vec![5, 6, 7, 8], vec![9, 10, 11, 12]];
+                assert_eq!(mask(values, &[(0, 0), (1, 2), (5, 5)]), [1, 7]);
+            }
+            fn test_contains_duplicates() {
+                use sudoku::rule::contains_duplicates;
+                {
+                    //empty gives false
+                    let values: Vec<i32> = Vec::new();
+                    assert_eq!(contains_duplicates(&values), false);
                 }
-            })
-            .collect::<Vec<_>>();
-        if found.is_empty() {
-            None
-        } else {
-            Some(found[0].clone())
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        #[test]
-        fn test_get_value() {
-            let values = [(0, 0, "Hello"), (2, 3, "World")];
-            use grid::get_value;
-            assert_eq!(get_value(&0, &0, &values, &"Default"), &"Hello");
-            assert_eq!(get_value(&2, &3, &values, &"Default"), &"World");
-            assert_eq!(get_value(&1, &1, &values, &"Default"), &"Default");
-        }
-        #[test]
-        fn test_create_flat_grid() {
-            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-            use grid::create_flat_grid;
-            use grid::get_value;
-            assert_eq!(
-                create_flat_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
-                [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
-            );
-        }
-        #[test]
-        fn test_create_grid() {
-            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-            use grid::create_grid;
-            use grid::get_value;
-            assert_eq!(
-                create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
-                [[1, 0, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]]
-            );
-        }
-        #[test]
-        fn test_flatten_grid() {
-            let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-            use grid::create_grid;
-            use grid::get_value;
-            use grid::flatten_grid;
-            assert_eq!(
-                flatten_grid(create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0)
-                    .clone())),
-                [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
-            );
-        }
-        #[test]
-        fn test_get_grid_value() {
-            let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
-            use grid::get_grid_value;
-            assert_eq!(get_grid_value(0, 0, &grid), Some(1));
-            assert_eq!(get_grid_value(100, 100, &grid), None);
+                {
+                    let values = vec![1, 2, 3, 4, 5, 6];
+                    assert_eq!(contains_duplicates(&values), false);
+                }
+                {
+                    let values = vec![1, 1, 2, 3, 4, 5];
+                    assert_eq!(contains_duplicates(&values), true);
+                }
+                {
+                    let values = vec![1, 2, 3, 4, 5, 5];
+                    assert_eq!(contains_duplicates(&values), true);
+                }
+                {
+                    let values = vec![1, 2, 3, 1, 4, 5];
+                    assert_eq!(contains_duplicates(&values), true);
+                }
+            }
         }
     }
 }
