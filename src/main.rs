@@ -287,10 +287,10 @@ mod sudoku {
         fn generate_rule(rule_type: RuleType) -> Vec<(usize, usize)> {
             use itertools::Itertools;
             match rule_type {
-                RuleType::Row(x) => (0..8).map(|y| (x, y)).collect::<Vec<(usize, usize)>>(),
-                RuleType::Column(y) => (0..8).map(|x| (x, y)).collect::<Vec<(usize, usize)>>(),
-                RuleType::Square(x, y) => (3 * x..(3 * (x + 1) - 1))
-                    .cartesian_product((3 * y..(3 * (y + 1) - 1)))
+                RuleType::Row(x) => (0..9).map(|y| (x, y)).collect::<Vec<(usize, usize)>>(),
+                RuleType::Column(y) => (0..9).map(|x| (x, y)).collect::<Vec<(usize, usize)>>(),
+                RuleType::Square(x, y) => (3 * x..(3 * (x + 1)))
+                    .cartesian_product((3 * y..(3 * (y + 1))))
                     .collect::<Vec<(usize, usize)>>(),
             }
         }
@@ -343,7 +343,8 @@ mod sudoku {
                             (0, 4),
                             (0, 5),
                             (0, 6),
-                            (0, 7)
+                            (0, 7),
+                            (0, 8)
                         ]
                     );
                     assert_eq!(
@@ -356,7 +357,8 @@ mod sudoku {
                             (1, 4),
                             (1, 5),
                             (1, 6),
-                            (1, 7)
+                            (1, 7),
+                            (1, 8)
                         ]
                     );
                     assert_eq!(
@@ -369,7 +371,8 @@ mod sudoku {
                             (2, 4),
                             (2, 5),
                             (2, 6),
-                            (2, 7)
+                            (2, 7),
+                            (2, 8)
                         ]
                     );
                     assert_eq!(
@@ -382,7 +385,8 @@ mod sudoku {
                             (3, 4),
                             (3, 5),
                             (3, 6),
-                            (3, 7)
+                            (3, 7),
+                            (3, 8)
                         ]
                     );
                     assert_eq!(
@@ -395,7 +399,8 @@ mod sudoku {
                             (4, 4),
                             (4, 5),
                             (4, 6),
-                            (4, 7)
+                            (4, 7),
+                            (4, 8)
                         ]
                     );
                 }
@@ -410,7 +415,8 @@ mod sudoku {
                             (4, 0),
                             (5, 0),
                             (6, 0),
-                            (7, 0)
+                            (7, 0),
+                            (8, 0)
                         ]
                     );
                     assert_eq!(
@@ -423,7 +429,8 @@ mod sudoku {
                             (4, 5),
                             (5, 5),
                             (6, 5),
-                            (7, 5)
+                            (7, 5),
+                            (8, 5)
                         ]
                     );
                 }
@@ -432,13 +439,14 @@ mod sudoku {
                         generate_rule(RuleType::Square(0, 0)),
                         [
                             (0, 0),
+                            (0, 1),
+                            (0, 2),
                             (1, 0),
+                            (1, 1),
+                            (1, 2),
                             (2, 0),
-                            (3, 0),
-                            (4, 0),
-                            (5, 0),
-                            (6, 0),
-                            (7, 0)
+                            (2, 1),
+                            (2, 2)
                         ]
                     );
                 }
