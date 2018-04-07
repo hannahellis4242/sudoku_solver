@@ -69,6 +69,7 @@ fn check_rule(squares: &Vector<Square>, rule: &[bool]) -> bool {
     !contains_duplicates(&y)
 }
 */
+extern crate itertools;
 
 mod sudoku {
     #[derive(Debug, Clone, PartialEq)]
@@ -277,6 +278,23 @@ mod sudoku {
             return !contains_duplicates(&values);
         }
 
+        enum RuleType {
+            Row(usize),
+            Column(usize),
+            Square(usize, usize),
+        }
+
+        fn generate_rule(rule_type: RuleType) -> Vec<(usize, usize)> {
+            use itertools::Itertools;
+            match rule_type {
+                RuleType::Row(x) => (0..8).map(|y| (x, y)).collect::<Vec<(usize, usize)>>(),
+                RuleType::Column(y) => (0..8).map(|x| (x, y)).collect::<Vec<(usize, usize)>>(),
+                RuleType::Square(x, y) => (3 * x..(3 * (x + 1) - 1))
+                    .cartesian_product((3 * y..(3 * (y + 1) - 1)))
+                    .collect::<Vec<(usize, usize)>>(),
+            }
+        }
+
         #[cfg(test)]
         mod tests {
             #[test]
@@ -285,6 +303,7 @@ mod sudoku {
                 let values = vec![vec![1, 2, 3, 4], vec![5, 6, 7, 8], vec![9, 10, 11, 12]];
                 assert_eq!(mask(values, &[(0, 0), (1, 2), (5, 5)]), [1, 7]);
             }
+            #[test]
             fn test_contains_duplicates() {
                 use sudoku::rule::contains_duplicates;
                 {
@@ -307,6 +326,121 @@ mod sudoku {
                 {
                     let values = vec![1, 2, 3, 1, 4, 5];
                     assert_eq!(contains_duplicates(&values), true);
+                }
+            }
+            #[test]
+            fn test_generate_rule() {
+                use sudoku::rule::generate_rule;
+                use sudoku::rule::RuleType;
+                {
+                    assert_eq!(
+                        generate_rule(RuleType::Row(0)),
+                        [
+                            (0, 0),
+                            (0, 1),
+                            (0, 2),
+                            (0, 3),
+                            (0, 4),
+                            (0, 5),
+                            (0, 6),
+                            (0, 7)
+                        ]
+                    );
+                    assert_eq!(
+                        generate_rule(RuleType::Row(1)),
+                        [
+                            (1, 0),
+                            (1, 1),
+                            (1, 2),
+                            (1, 3),
+                            (1, 4),
+                            (1, 5),
+                            (1, 6),
+                            (1, 7)
+                        ]
+                    );
+                    assert_eq!(
+                        generate_rule(RuleType::Row(2)),
+                        [
+                            (2, 0),
+                            (2, 1),
+                            (2, 2),
+                            (2, 3),
+                            (2, 4),
+                            (2, 5),
+                            (2, 6),
+                            (2, 7)
+                        ]
+                    );
+                    assert_eq!(
+                        generate_rule(RuleType::Row(3)),
+                        [
+                            (3, 0),
+                            (3, 1),
+                            (3, 2),
+                            (3, 3),
+                            (3, 4),
+                            (3, 5),
+                            (3, 6),
+                            (3, 7)
+                        ]
+                    );
+                    assert_eq!(
+                        generate_rule(RuleType::Row(4)),
+                        [
+                            (4, 0),
+                            (4, 1),
+                            (4, 2),
+                            (4, 3),
+                            (4, 4),
+                            (4, 5),
+                            (4, 6),
+                            (4, 7)
+                        ]
+                    );
+                }
+                {
+                    assert_eq!(
+                        generate_rule(RuleType::Column(0)),
+                        [
+                            (0, 0),
+                            (1, 0),
+                            (2, 0),
+                            (3, 0),
+                            (4, 0),
+                            (5, 0),
+                            (6, 0),
+                            (7, 0)
+                        ]
+                    );
+                    assert_eq!(
+                        generate_rule(RuleType::Column(5)),
+                        [
+                            (0, 5),
+                            (1, 5),
+                            (2, 5),
+                            (3, 5),
+                            (4, 5),
+                            (5, 5),
+                            (6, 5),
+                            (7, 5)
+                        ]
+                    );
+                }
+                {
+                    assert_eq!(
+                        generate_rule(RuleType::Square(0, 0)),
+                        [
+                            (0, 0),
+                            (1, 0),
+                            (2, 0),
+                            (3, 0),
+                            (4, 0),
+                            (5, 0),
+                            (6, 0),
+                            (7, 0)
+                        ]
+                    );
                 }
             }
         }
