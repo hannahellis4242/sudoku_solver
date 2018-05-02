@@ -1,189 +1,90 @@
 extern crate itertools;
 
 mod sudoku {
-    #[derive(Debug, Clone, PartialEq)]
-    pub enum Square {
-        Fix(char),
-        Var(char),
-        Blank,
+    struct GridInfo {
+        width: usize,
+        height: usize,
+        square: usize,
+        values: Vec<char>,
     }
 
-    impl Square {
-        fn fixed(x: char) -> Square {
-            Square::Fix(x)
-        }
-        fn variable(x: char) -> Square {
-            Square::Var(x)
-        }
-        fn blank() -> Square {
-            Square::Blank
-        }
-
-        fn as_char(&self) -> char {
-            match *self {
-                Square::Fix(x) => x,
-                Square::Var(x) => x,
-                Square::Blank => ' ',
-            }
-        }
+    struct Problem {
+        grid: GridInfo,
+        values: Vec<Option<char>>,
     }
 
-    mod grid {
-        pub fn get_value<'a, T>(
-            row: &usize,
-            column: &usize,
-            values: &'a [(usize, usize, T)],
-            d: &'a T,
-        ) -> &'a T {
-            let found = values
-                .iter()
-                .filter_map(|&(x, y, ref z)| {
-                    if x == *row && y == *column {
-                        Some(z.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            if found.is_empty() {
-                d
-            } else {
-                &found[0]
-            }
-        }
-
-        fn create_flat_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<T>
-        where
-            T: Clone,
-            F: Fn(usize, usize) -> T,
-        {
-            (0..)
-                .take(rows)
-                .flat_map(|x| {
-                    (0..)
-                        .take(columns)
-                        .map(|y| f(x, y).clone())
-                        .collect::<Vec<T>>()
-                })
-                .collect::<Vec<T>>()
-        }
-
-        pub fn create_grid<T, F>(rows: usize, columns: usize, f: F) -> Vec<Vec<T>>
-        where
-            T: Clone,
-            F: Fn(usize, usize) -> T,
-        {
-            (0..)
-                .take(rows)
-                .map(|x| {
-                    (0..)
-                        .take(columns)
-                        .map(|y| f(x, y).clone())
-                        .collect::<Vec<T>>()
-                })
-                .collect::<Vec<Vec<T>>>()
-        }
-
-        fn flatten_grid<T>(grid: Vec<Vec<T>>) -> Vec<T>
-        where
-            T: Clone,
-        {
-            grid.concat()
-        }
-
-        pub fn get_grid_value<T>(row: usize, column: usize, grid: &Vec<Vec<T>>) -> Option<T>
-        where
-            T: Clone,
-        {
-            let grid_values = grid.iter()
-                .enumerate()
-                .flat_map(|(row_index, row_values)| {
-                    row_values
-                        .iter()
-                        .enumerate()
-                        .map(|(column_index, value)| (row_index, column_index, value))
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
-            let found = grid_values
-                .iter()
-                .filter_map(|&(x, y, v)| {
-                    if x == row && y == column {
-                        Some(v)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            if found.is_empty() {
-                None
-            } else {
-                Some(found[0].clone())
-            }
-        }
-
-        #[cfg(test)]
-        mod tests {
-            #[test]
-            fn test_get_value() {
-                let values = [(0, 0, "Hello"), (2, 3, "World")];
-                use sudoku::grid::get_value;
-                assert_eq!(get_value(&0, &0, &values, &"Default"), &"Hello");
-                assert_eq!(get_value(&2, &3, &values, &"Default"), &"World");
-                assert_eq!(get_value(&1, &1, &values, &"Default"), &"Default");
-            }
-            #[test]
-            fn test_create_flat_grid() {
-                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-                use sudoku::grid::create_flat_grid;
-                use sudoku::grid::get_value;
-                assert_eq!(
-                    create_flat_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
-                    [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
-                );
-            }
-            #[test]
-            fn test_create_grid() {
-                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-                use sudoku::grid::create_grid;
-                use sudoku::grid::get_value;
-                assert_eq!(
-                    create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0).clone()),
-                    [[1, 0, 0, 0], [0, 0, 3, 0], [0, 0, 0, 2]]
-                );
-            }
-            #[test]
-            fn test_flatten_grid() {
-                let values = [(0, 0, 1), (2, 3, 2), (1, 2, 3)];
-                use sudoku::grid::create_grid;
-                use sudoku::grid::get_value;
-                use sudoku::grid::flatten_grid;
-                assert_eq!(
-                    flatten_grid(create_grid(3, 4, |x, y| get_value(&x, &y, &values, &0)
-                        .clone())),
-                    [1, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 2]
-                );
-            }
-            #[test]
-            fn test_get_grid_value() {
-                let grid = vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]];
-                use sudoku::grid::get_grid_value;
-                assert_eq!(get_grid_value(0, 0, &grid), Some(1));
-                assert_eq!(get_grid_value(100, 100, &grid), None);
-            }
-        }
+    struct PartialSolution {
+        trial_values: Vec<char>,
     }
 
+    mod utils {
+        use sudoku::Problem;
+        use sudoku::PartialSolution;
+        fn merge<T>(x: &[Option<T>], y: &[T]) -> Vec<Option<T>>
+        where
+            T: Clone,
+        {
+            let mut y_iter = y.iter();
+            x.iter()
+                .map(|a| match a {
+                    &Some(ref v) => Some(v.clone()),
+                    &None => y_iter.next().map(|b| b.clone()),
+                })
+                .collect::<Vec<_>>()
+        }
+
+        pub fn create_trial_values(p: &Problem, ps: &PartialSolution) -> Vec<Option<char>> {
+            merge(&p.values, &ps.trial_values)
+        }
+
+        pub fn find_next<'t, T>(x: &T, xs: &'t [T]) -> Option<&'t T>
+        where
+            T: PartialEq,
+        {
+            xs.split_first().and_then(|(y, ys)| {
+                if y == x {
+                    ys.first()
+                } else {
+                    find_next(x, ys)
+                }
+            })
+        }
+    }
     mod rule {
-        fn mask<T>(grid_values: Vec<Vec<T>>, indices: &[(usize, usize)]) -> Vec<T>
-        where
-            T: Clone,
-        {
-            use sudoku::grid::get_grid_value;
-            indices
-                .iter()
-                .filter_map(|&(x, y)| get_grid_value(x, y, &grid_values))
-                .collect::<Vec<T>>()
+        enum Rule {
+            Row(usize),
+            Column(usize),
+            Square(usize, usize),
+        }
+
+        use sudoku::GridInfo;
+        fn generate_rule(r: &Rule, g: &GridInfo) -> Vec<(usize, usize)> {
+            use itertools::Itertools;
+            match r {
+                &Rule::Row(i) => (0..g.width)
+                    .map(|j| (i, j))
+                    .collect::<Vec<(usize, usize)>>(),
+                &Rule::Column(j) => (0..g.height)
+                    .map(|i| (i, j))
+                    .collect::<Vec<(usize, usize)>>(),
+                &Rule::Square(i, j) => (g.square * j..g.square * (j + 1))
+                    .cartesian_product(g.square * i..g.square * (i + 1))
+                    .collect::<Vec<(usize, usize)>>(),
+            }
+        }
+
+        fn flat_index(x: &usize, y: &usize, g: &GridInfo) -> Option<usize> {
+            if *x < g.height && *y < g.width {
+                Some(y + g.width * x)
+            } else {
+                None
+            }
+        }
+
+        fn flatten_indices(xs: &[(usize, usize)], g: &GridInfo) -> Vec<usize> {
+            xs.iter()
+                .filter_map(|&(x, y)| flat_index(&x, &y, &g))
+                .collect::<Vec<usize>>()
         }
 
         fn contains_duplicates<T>(x: &[T]) -> bool
@@ -201,432 +102,61 @@ mod sudoku {
                 None => false,
             }
         }
-        use sudoku::Square;
-        pub fn check_rule(g: Vec<Vec<Square>>, rule: &[(usize, usize)]) -> bool {
-            let values = mask(g, rule);
-            return !contains_duplicates(&values);
+        fn check_rule(g: &[Option<char>], r: &Rule, gi: &GridInfo) -> bool {
+            let indices = flatten_indices(&generate_rule(&r, &gi), &gi);
+            let values = indices.iter().filter_map(|i| g[*i]).collect::<Vec<char>>();
+            !contains_duplicates(&values)
         }
 
-        pub enum RuleType {
-            Row(usize),
-            Column(usize),
-            Square(usize, usize),
-        }
-
-        pub fn generate_rule(rule_type: RuleType) -> Vec<(usize, usize)> {
+        pub fn check_rules(g: &[Option<char>], gi: &GridInfo) -> bool {
+            let row_rules = (0..9).map(|x| Rule::Row(x));
+            let column_rules = (0..9).map(|x| Rule::Column(x));
             use itertools::Itertools;
-            match rule_type {
-                RuleType::Row(x) => (0..9).map(|y| (x, y)).collect::<Vec<(usize, usize)>>(),
-                RuleType::Column(y) => (0..9).map(|x| (x, y)).collect::<Vec<(usize, usize)>>(),
-                RuleType::Square(x, y) => (3 * x..(3 * (x + 1)))
-                    .cartesian_product((3 * y..(3 * (y + 1))))
-                    .collect::<Vec<(usize, usize)>>(),
-            }
-        }
-        #[cfg(test)]
-        mod tests {
-            #[test]
-            fn test_mask() {
-                use sudoku::rule::mask;
-                let values = vec![vec![1, 2, 3, 4], vec![5, 6, 7, 8], vec![9, 10, 11, 12]];
-                assert_eq!(mask(values, &[(0, 0), (1, 2), (5, 5)]), [1, 7]);
-            }
-            #[test]
-            fn test_contains_duplicates() {
-                use sudoku::rule::contains_duplicates;
-                {
-                    //empty gives false
-                    let values: Vec<i32> = Vec::new();
-                    assert_eq!(contains_duplicates(&values), false);
-                }
-                {
-                    let values = vec![1, 2, 3, 4, 5, 6];
-                    assert_eq!(contains_duplicates(&values), false);
-                }
-                {
-                    let values = vec![1, 1, 2, 3, 4, 5];
-                    assert_eq!(contains_duplicates(&values), true);
-                }
-                {
-                    let values = vec![1, 2, 3, 4, 5, 5];
-                    assert_eq!(contains_duplicates(&values), true);
-                }
-                {
-                    let values = vec![1, 2, 3, 1, 4, 5];
-                    assert_eq!(contains_duplicates(&values), true);
-                }
-            }
-            #[test]
-            fn test_generate_rule() {
-                use sudoku::rule::generate_rule;
-                use sudoku::rule::RuleType;
-                {
-                    assert_eq!(
-                        generate_rule(RuleType::Row(0)),
-                        [
-                            (0, 0),
-                            (0, 1),
-                            (0, 2),
-                            (0, 3),
-                            (0, 4),
-                            (0, 5),
-                            (0, 6),
-                            (0, 7),
-                            (0, 8)
-                        ]
-                    );
-                    assert_eq!(
-                        generate_rule(RuleType::Row(1)),
-                        [
-                            (1, 0),
-                            (1, 1),
-                            (1, 2),
-                            (1, 3),
-                            (1, 4),
-                            (1, 5),
-                            (1, 6),
-                            (1, 7),
-                            (1, 8)
-                        ]
-                    );
-                    assert_eq!(
-                        generate_rule(RuleType::Row(2)),
-                        [
-                            (2, 0),
-                            (2, 1),
-                            (2, 2),
-                            (2, 3),
-                            (2, 4),
-                            (2, 5),
-                            (2, 6),
-                            (2, 7),
-                            (2, 8)
-                        ]
-                    );
-                    assert_eq!(
-                        generate_rule(RuleType::Row(3)),
-                        [
-                            (3, 0),
-                            (3, 1),
-                            (3, 2),
-                            (3, 3),
-                            (3, 4),
-                            (3, 5),
-                            (3, 6),
-                            (3, 7),
-                            (3, 8)
-                        ]
-                    );
-                    assert_eq!(
-                        generate_rule(RuleType::Row(4)),
-                        [
-                            (4, 0),
-                            (4, 1),
-                            (4, 2),
-                            (4, 3),
-                            (4, 4),
-                            (4, 5),
-                            (4, 6),
-                            (4, 7),
-                            (4, 8)
-                        ]
-                    );
-                }
-                {
-                    assert_eq!(
-                        generate_rule(RuleType::Column(0)),
-                        [
-                            (0, 0),
-                            (1, 0),
-                            (2, 0),
-                            (3, 0),
-                            (4, 0),
-                            (5, 0),
-                            (6, 0),
-                            (7, 0),
-                            (8, 0)
-                        ]
-                    );
-                    assert_eq!(
-                        generate_rule(RuleType::Column(5)),
-                        [
-                            (0, 5),
-                            (1, 5),
-                            (2, 5),
-                            (3, 5),
-                            (4, 5),
-                            (5, 5),
-                            (6, 5),
-                            (7, 5),
-                            (8, 5)
-                        ]
-                    );
-                }
-                {
-                    assert_eq!(
-                        generate_rule(RuleType::Square(0, 0)),
-                        [
-                            (0, 0),
-                            (0, 1),
-                            (0, 2),
-                            (1, 0),
-                            (1, 1),
-                            (1, 2),
-                            (2, 0),
-                            (2, 1),
-                            (2, 2)
-                        ]
-                    );
-                }
-            }
+            let square_rules = (0..3)
+                .cartesian_product((0..3))
+                .map(|(x, y)| Rule::Square(x, y));
+
+            let rules = row_rules.chain(column_rules).chain(square_rules);
+
+            !rules.all(|x| check_rule(g, &x, gi))
         }
     }
 
-    fn root(known_grid_values: &[(usize, usize, char)]) -> Vec<Vec<Square>> {
-        use sudoku::grid::get_value;
-        use sudoku::grid::create_grid;
-        let values = known_grid_values
-            .iter()
-            .map(|&(x, y, z)| (x, y, Square::fixed(z)))
-            .collect::<Vec<_>>();
+    fn root(p: &Problem) -> PartialSolution {
+        PartialSolution {
+            trial_values: Vec::new(),
+        }
+    }
 
-        create_grid(9, 9, |x, y| {
-            get_value(&x, &y, &values, &Square::Blank).clone()
+    fn reject(p: &Problem, c: &PartialSolution) -> bool {
+        let trial_values = utils::create_trial_values(p, c);
+        !rule::check_rules(&trial_values, &p.grid)
+    }
+
+    fn accept(p: &Problem, c: &PartialSolution) -> bool {
+        !utils::create_trial_values(p, c).iter().any(|x| x.is_none())
+    }
+
+    fn first(p: &Problem, c: &PartialSolution) -> Option<PartialSolution> {
+        use std::iter;
+        p.grid.values.as_slice().first().map(|f| PartialSolution {
+            trial_values: c.trial_values
+                .iter()
+                .chain(iter::once(f))
+                .map(|x| *x)
+                .collect::<Vec<char>>(),
         })
     }
 
-    fn show(g: &Vec<Vec<Square>>) -> String {
-        let show_element = |index: usize, element: &Square| {
-            if index % 3 == 0 && index != 0 {
-                format!("| {} ", element.as_char())
-            } else {
-                format!("{} ", element.as_char())
-            }
-        };
-
-        let show_row = |row: &Vec<Square>| {
-            row.iter()
-                .enumerate()
-                .map(|(i, x)| show_element(i, &x))
-                .fold(String::new(), |acc, x| format!("{}{}", acc, x))
-        };
-
-        g.iter()
-            .enumerate()
-            .map(|(index, row)| {
-                if index % 3 == 0 && index != 0 {
-                    format!("------+-------+------\n{}", show_row(row))
-                } else {
-                    format!("{}", show_row(row))
-                }
-            })
-            .fold(String::new(), |acc, x| format!("{}\n{}", acc, x))
-    }
-
-    fn reject(g: Vec<Vec<Square>>) -> bool {
-        use sudoku::rule::check_rule;
-        use sudoku::rule::generate_rule;
-        use sudoku::rule::RuleType;
-        let row_rules = (0..9).map(|x| RuleType::Row(x));
-        let column_rules = (0..9).map(|x| RuleType::Column(x));
-        use itertools::Itertools;
-        let square_rules = (0..3)
-            .cartesian_product((0..3))
-            .map(|(x, y)| RuleType::Square(x, y));
-
-        let rules = row_rules.chain(column_rules).chain(square_rules);
-
-        !rules
-            .map(|x| generate_rule(x))
-            .all(|x| check_rule(g.clone(), &x))
-    }
-    #[cfg(test)]
-    mod tests {
-        #[test]
-        fn test_root() {
-            use sudoku::root;
-            use sudoku::show;
-            let values = [
-                (0, 0, '9'),
-                (0, 3, '7'),
-                (1, 2, '7'),
-                (1, 3, '1'),
-                (1, 4, '9'),
-                (1, 6, '4'),
-                (1, 7, '6'),
-                (1, 8, '2'),
-                (2, 0, '6'),
-                (2, 1, '1'),
-                (2, 3, '2'),
-                (2, 6, '9'),
-                (2, 7, '7'),
-                (2, 8, '3'),
-                (3, 0, '2'),
-                (3, 6, '3'),
-                (3, 7, '8'),
-                (3, 8, '7'),
-                (4, 2, '8'),
-                (4, 3, '3'),
-                (4, 5, '2'),
-                (4, 8, '6'),
-                (5, 0, '4'),
-                (5, 1, '7'),
-                (5, 2, '3'),
-                (5, 3, '8'),
-                (5, 4, '5'),
-                (5, 5, '6'),
-                (5, 6, '1'),
-                (5, 7, '2'),
-                (6, 1, '6'),
-                (6, 2, '4'),
-                (6, 5, '7'),
-                (6, 6, '2'),
-                (6, 7, '9'),
-                (6, 8, '1'),
-                (7, 4, '8'),
-                (7, 5, '1'),
-                (8, 1, '3'),
-                (8, 2, '1'),
-                (8, 3, '9'),
-                (8, 7, '5'),
-                (8, 8, '8'),
-            ];
-            let g = root(&values);
-            println!("{}", show(&g));
-            use sudoku::Square::Fix;
-            use sudoku::Square::Blank;
-            assert_eq!(
-                g,
-                /*vec![
-                    vec![Fix('9'), Blank, Blank, Fix('7')],
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                ]*/
-                [
-                    [
-                        Fix('9'),
-                        Blank,
-                        Blank,
-                        Fix('7'),
-                        Blank,
-                        Blank,
-                        Blank,
-                        Blank,
-                        Blank
-                    ],
-                    [
-                        Blank,
-                        Blank,
-                        Fix('7'),
-                        Fix('1'),
-                        Fix('9'),
-                        Blank,
-                        Fix('4'),
-                        Fix('6'),
-                        Fix('2')
-                    ],
-                    [
-                        Fix('6'),
-                        Fix('1'),
-                        Blank,
-                        Fix('2'),
-                        Blank,
-                        Blank,
-                        Fix('9'),
-                        Fix('7'),
-                        Fix('3')
-                    ],
-                    [
-                        Fix('2'),
-                        Blank,
-                        Blank,
-                        Blank,
-                        Blank,
-                        Blank,
-                        Fix('3'),
-                        Fix('8'),
-                        Fix('7')
-                    ],
-                    [
-                        Blank,
-                        Blank,
-                        Fix('8'),
-                        Fix('3'),
-                        Blank,
-                        Fix('2'),
-                        Blank,
-                        Blank,
-                        Fix('6')
-                    ],
-                    [
-                        Fix('4'),
-                        Fix('7'),
-                        Fix('3'),
-                        Fix('8'),
-                        Fix('5'),
-                        Fix('6'),
-                        Fix('1'),
-                        Fix('2'),
-                        Blank
-                    ],
-                    [
-                        Blank,
-                        Fix('6'),
-                        Fix('4'),
-                        Blank,
-                        Blank,
-                        Fix('7'),
-                        Fix('2'),
-                        Fix('9'),
-                        Fix('1')
-                    ],
-                    [
-                        Blank,
-                        Blank,
-                        Blank,
-                        Blank,
-                        Fix('8'),
-                        Fix('1'),
-                        Blank,
-                        Blank,
-                        Blank
-                    ],
-                    [
-                        Blank,
-                        Fix('3'),
-                        Fix('1'),
-                        Fix('9'),
-                        Blank,
-                        Blank,
-                        Blank,
-                        Fix('5'),
-                        Fix('8')
-                    ]
-                ]
-            );
-        }
-        #[test]
-        fn test_reject() {
-            /*use sudoku::reject;
-            use sudoku::grid::create_grid;
-            use sudoku::grid::get_value;
-            use sudoku::Square;
-
-            let values = ((0, 0, 1), (0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 4))
-                .iter()
-                .map(|(x, y, z)| (x, y, Square::Fixed(z)))
-                .collect::<Vec<_>>();
-
-            let g = create_grid(9, 9, |x, y| {
-                get_value(&x, &y, &values, &Square::Blank).clone()
-            });*/
-        }
+    fn next(p: &Problem, c: &PartialSolution) -> Option<PartialSolution> {
+        use std::iter;
+        PartialSolution {
+            trial_values: c.trial_values
+                .split_last()
+                .and_then(|(x, xs)| {
+                    utils::find_next(x, p.grid.values)
+                    .map(|n|xs.iter().chain(iter::once(n)).collect::<Vec<char>>())
+                    })
     }
 }
 
