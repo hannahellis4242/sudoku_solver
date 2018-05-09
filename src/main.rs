@@ -1,19 +1,19 @@
 extern crate itertools;
 
 mod sudoku {
-    struct GridInfo {
+    pub struct GridInfo {
         width: usize,
         height: usize,
         square: usize,
         values: Vec<char>,
     }
 
-    struct Problem {
+    pub struct Problem {
         grid: GridInfo,
         values: Vec<Option<char>>,
     }
 
-    struct PartialSolution {
+    pub struct PartialSolution {
         trial_values: Vec<char>,
     }
 
@@ -116,13 +116,13 @@ mod sudoku {
                 .cartesian_product((0..3))
                 .map(|(x, y)| Rule::Square(x, y));
 
-            let rules = row_rules.chain(column_rules).chain(square_rules);
-
+            let mut rules = row_rules.chain(column_rules).chain(square_rules);
+            //              ^ why is this mutable...
             !rules.all(|x| check_rule(g, &x, gi))
         }
     }
 
-    fn root(p: &Problem) -> PartialSolution {
+    fn root() -> PartialSolution {
         PartialSolution {
             trial_values: Vec::new(),
         }
@@ -150,13 +150,14 @@ mod sudoku {
 
     fn next(p: &Problem, c: &PartialSolution) -> Option<PartialSolution> {
         use std::iter;
-        PartialSolution {
-            trial_values: c.trial_values
-                .split_last()
-                .and_then(|(x, xs)| {
-                    utils::find_next(x, p.grid.values)
-                    .map(|n|xs.iter().chain(iter::once(n)).collect::<Vec<char>>())
-                    })
+        c.trial_values.split_last().and_then(|(x, xs)| {
+            utils::find_next(x, p.grid.values.as_slice()).map(|n| PartialSolution {
+                trial_values: xs.iter()
+                    .chain(iter::once(n))
+                    .map(|n| *n)
+                    .collect::<Vec<char>>(),
+            })
+        })
     }
 }
 
