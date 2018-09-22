@@ -218,7 +218,7 @@ mod sudoku {
     }
     struct Dot {
         generator: IdGenerator,
-        idsAndLabels: Vec<(u32, String)>,
+        ids_and_labels: Vec<(u32, String)>,
         edges: Vec<(u32, u32)>,
     }
 
@@ -226,27 +226,27 @@ mod sudoku {
         fn new() -> Dot {
             Dot {
                 generator: IdGenerator::new(),
-                idsAndLabels: Vec::new(),
+                ids_and_labels: Vec::new(),
                 edges: Vec::new(),
             }
         }
-        fn addNode(&mut self, label: &str) -> u32 {
+        fn add_node(&mut self, label: &str) -> u32 {
             let id = self.generator.next().unwrap();
-            self.idsAndLabels.push((id, label.to_owned()));
+            self.ids_and_labels.push((id, label.to_owned()));
             id
         }
-        fn addEdge(&mut self, source: u32, target: u32) {
+        fn add_edge(&mut self, source: u32, target: u32) {
             self.edges.push((source, target));
         }
         fn show(&self, name: &str) -> String {
-            fn showIdAndLabel((id, label): &(u32, String)) -> String {
+            fn show_id_and_label((id, label): &(u32, String)) -> String {
                 let mut out = id.to_string();
                 out += " [label=\"";
                 out += label.as_str();
                 out += "\"];\n";
                 out
             }
-            fn showEdge((s, t): &(u32, u32)) -> String {
+            fn show_edge((s, t): &(u32, u32)) -> String {
                 let mut out = s.to_string();
                 out += " -> ";
                 out += t.to_string().as_str();
@@ -259,9 +259,9 @@ mod sudoku {
             out += " {\n";
             out += "node[shape=record];\n";
             out += self
-                .idsAndLabels
+                .ids_and_labels
                 .iter()
-                .map(showIdAndLabel)
+                .map(show_id_and_label)
                 .fold(String::new(), |mut acc, x| {
                     acc.push_str(x.as_str());
                     acc
@@ -269,7 +269,7 @@ mod sudoku {
             out += self
                 .edges
                 .iter()
-                .map(showEdge)
+                .map(show_edge)
                 .fold(String::new(), |mut acc, x| {
                     acc.push_str(x.as_str());
                     acc
@@ -295,7 +295,7 @@ mod sudoku {
         fn dot_label(&self) -> String {
             use sudoku;
             match self {
-            sudoku::Node::Root { children } => "{root}".to_owned(),
+                sudoku::Node::Root { children: _ } => "{root}".to_owned(),
                 sudoku::Node::Halt { value } => {
                     let mut out = "{halt|".to_owned();
                     out.push(*value);
@@ -327,8 +327,8 @@ mod sudoku {
                 }
                 sudoku::Node::Partial {
                     value,
-                    solution,
-                    children,
+                    solution: _,
+                    children: _,
                 } => {
                     let mut out = String::new();
                     out.push(*value);
@@ -339,24 +339,27 @@ mod sudoku {
 
         fn visit(&self, d: &mut Dot) -> u32 {
             use sudoku;
-            let id = d.addNode(self.dot_label().as_str());
+            let id = d.add_node(self.dot_label().as_str());
             match self {
-                sudoku::Node::Done { value, solution } => (),
-                sudoku::Node::Halt { value } => (),
+                sudoku::Node::Done {
+                    value: _,
+                    solution: _,
+                } => (),
+                sudoku::Node::Halt { value: _ } => (),
                 sudoku::Node::Partial {
-                    value,
-                    solution,
+                    value: _,
+                    solution: _,
                     children,
                 } => {
                     children.iter().for_each(|child| {
                         let child_id = child.visit(d);
-                        d.addEdge(id, child_id)
+                        d.add_edge(id, child_id)
                     });
                 }
                 sudoku::Node::Root { children } => {
                     children.iter().for_each(|child| {
                         let child_id = child.visit(d);
-                        d.addEdge(id, child_id)
+                        d.add_edge(id, child_id)
                     });
                 }
             };
