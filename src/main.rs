@@ -33,12 +33,12 @@ mod sudoku {
     }
 
     mod utils {
-        pub fn simplify(xs: &[Option<char>]) -> Vec<char> {
+        pub fn simplify(xs: &[Option<char>]) -> String {
             xs.iter()
                 .map(|x| match x {
                     Some(v) => *v,
                     None => '-',
-                }).collect::<Vec<char>>()
+                }).fold(String::new(),|mut acc,x|{acc.push(x);acc})
         }
         pub fn splice<T>(xs: &[Option<T>], y: T) -> Vec<Option<T>>
         where
@@ -179,7 +179,7 @@ mod sudoku {
                     };
                     let children = create_children(&problem, &partial_solution);
 
-                    println!("partial_solution : {:?}", partial_solution);
+                    //println!("partial_solution : {:?}", partial_solution);
                     println!("number of children : {:?}", children.len());
                     println!("Partial");
                     println!("==========create_child==========");
@@ -383,7 +383,7 @@ fn main() {
             height: 9,
             width: 9,
             square: 3,
-            values: vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            values: vec!['1', '2', '3', '4', '5', '6', '7', '8', '9'],
         };
         let values = vec![
             None,
