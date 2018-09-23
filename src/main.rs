@@ -12,11 +12,6 @@ mod sudoku {
         pub values: Vec<Option<char>>,
     }
 
-    #[derive(Debug)]
-    pub struct Partial {
-        solution: Vec<Option<char>>,
-    }
-
     mod utils {
         /*pub fn simplify(xs: &[Option<char>]) -> String {
             xs.iter()
@@ -135,7 +130,7 @@ mod sudoku {
         fn create_child(
             value: char,
             problem: &sudoku::Problem,
-            parent_solution: &sudoku::Partial,
+            parent_solution: &[Option<char>],
             solutions: &[Vec<char>],
         ) -> Vec<Vec<char>> {
             use sudoku::rule;
@@ -146,7 +141,7 @@ mod sudoku {
                 "parent_solution:{:?}",
                 utils::simplify(&parent_solution.solution)
             );*/
-            let trial_values = utils::splice(&parent_solution.solution, value);
+            let trial_values = utils::splice(&parent_solution, value);
             //println!("trial_values   :{:?}", utils::simplify(&trial_values));
             let broken_rule_count = rule::check_rules(&trial_values, &problem.grid);
             //println!("broken_rule_count:{:?}", &broken_rule_count);
@@ -169,10 +164,7 @@ mod sudoku {
 
                     utils::append(&solutions, &solution)
                 } else {
-                    let partial_solution = sudoku::Partial {
-                        solution: trial_values,
-                    };
-                    let children = create_children(&problem, &partial_solution, &solutions);
+                    let children = create_children(&problem, &trial_values, &solutions);
                     //println!("partial_solution : {:?}", partial_solution);
                     //println!("number of children : {:?}", children.len());
                     //println!("Partial");
@@ -185,7 +177,7 @@ mod sudoku {
         }
         pub fn create_children(
             problem: &sudoku::Problem,
-            parent_solution: &sudoku::Partial,
+            parent_solution: &[Option<char>],
             solutions: &[Vec<char>],
         ) -> Vec<Vec<char>> {
             problem
@@ -197,13 +189,10 @@ mod sudoku {
         }
     }
     pub fn solve(problem: &Problem) -> Vec<Vec<char>> {
-        use sudoku;
         use sudoku::helper;
         helper::create_children(
             &problem,
-            &sudoku::Partial {
-                solution: problem.values.clone(),
-            },
+            &problem.values,
             &[],
         )
     }
