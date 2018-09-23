@@ -23,9 +23,6 @@ mod sudoku {
             solution: Partial,
             children: Vec<Node>,
         },
-        Halt {
-            value: char,
-        },
         Done {
             value: char,
             solution: Vec<char>,
@@ -36,6 +33,13 @@ mod sudoku {
     }
 
     mod utils {
+        pub fn simplify(xs: &[Option<char>]) -> Vec<char> {
+            xs.iter()
+                .map(|x| match x {
+                    Some(v) => *v,
+                    None => '-',
+                }).collect::<Vec<char>>()
+        }
         pub fn splice<T>(xs: &[Option<T>], y: T) -> Vec<Option<T>>
         where
             T: Clone,
@@ -136,16 +140,19 @@ mod sudoku {
             value: char,
             problem: &sudoku::Problem,
             parent_solution: &sudoku::Partial,
-        ) -> sudoku::Node {
+        ) -> Option<sudoku::Node> {
             use sudoku::rule;
             use sudoku::utils;
-            //println!("----------create_child----------");
-            //println!("value:{:?}",&value);
-            //println!("parent_solution:{:?}",&parent_solution.solution);
+            println!("----------create_child----------");
+            println!("value:{:?}", &value);
+            println!(
+                "parent_solution:{:?}",
+                utils::simplify(&parent_solution.solution)
+            );
             let trial_values = utils::splice(&parent_solution.solution, value);
-            //println!("trial_values:{:?}",&trial_values);
+            println!("trial_values   :{:?}", utils::simplify(&trial_values));
             let broken_rule_count = rule::check_rules(&trial_values, &problem.grid);
-            //println!("broken_rule_count:{:?}",&broken_rule_count);
+            println!("broken_rule_count:{:?}", &broken_rule_count);
             if broken_rule_count == 0 {
                 //see if we are done
                 let done = trial_values
@@ -153,38 +160,41 @@ mod sudoku {
                     .filter(|x| x.is_none())
                     .collect::<Vec<_>>()
                     .is_empty();
-                //println!("done:{:?}",&done);
+                println!("done:{:?}", &done);
                 if done {
                     let solution = trial_values
                         .iter()
                         .filter_map(|x| *x)
                         .collect::<Vec<char>>();
-                    //println!("solution : {:?}",solution) ;
-                    //println!("Done");
-                    //println!("==========create_child==========");
-                    sudoku::Node::Done {
+                    println!("solution : {:?}", solution);
+                    println!("Done");
+                    println!("==========create_child==========");
+                    Some(sudoku::Node::Done {
                         value: value,
                         solution: solution,
-                    }
+                    })
                 } else {
                     let partial_solution = sudoku::Partial {
                         solution: trial_values,
                     };
                     let children = create_children(&problem, &partial_solution);
 
-                    //println!("partial_solution : {:?}",partial_solution) ;
-                    //println!("Partial");
-                    //println!("==========create_child==========");
-                    sudoku::Node::Partial {
-                        value: value,
-                        solution: partial_solution,
-                        children: children,
+                    println!("partial_solution : {:?}", partial_solution);
+                    println!("number of children : {:?}", children.len());
+                    println!("Partial");
+                    println!("==========create_child==========");
+                    if children.is_empty() {
+                        None
+                    } else {
+                        Some(sudoku::Node::Partial {
+                            value: value,
+                            solution: partial_solution,
+                            children: children,
+                        })
                     }
                 }
             } else {
-                //println!("Halt");
-                //println!("==========create_child==========");
-                sudoku::Node::Halt { value: value }
+                None
             }
         }
         pub fn create_children(
@@ -195,7 +205,7 @@ mod sudoku {
                 .grid
                 .values
                 .iter()
-                .map(move |&value| create_child(value, &problem, &parent_solution))
+                .filter_map(move |&value| create_child(value, &problem, &parent_solution))
                 .collect::<Vec<sudoku::Node>>()
         }
     }
@@ -296,12 +306,6 @@ mod sudoku {
             use sudoku;
             match self {
                 sudoku::Node::Root { children: _ } => "{root}".to_owned(),
-                sudoku::Node::Halt { value } => {
-                    let mut out = "{halt|".to_owned();
-                    out.push(*value);
-                    out += "}";
-                    out
-                }
                 sudoku::Node::Done { value, solution } => {
                     let mut out = "{done|".to_owned();
                     out.push(*value);
@@ -345,7 +349,6 @@ mod sudoku {
                     value: _,
                     solution: _,
                 } => (),
-                sudoku::Node::Halt { value: _ } => (),
                 sudoku::Node::Partial {
                     value: _,
                     solution: _,
