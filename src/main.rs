@@ -1,7 +1,13 @@
+extern crate clap;
 extern crate itertools;
+extern crate serde_json;
 mod sudoku;
+use clap::{App, Arg};
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
 
-fn main() {
+fn foo() {
     {
         let g = sudoku::GridInfo {
             height: 9,
@@ -98,4 +104,56 @@ fn main() {
         });
         println!("{:?}", solution);
     }
+}
+
+trait ReadToString {
+    fn read_to_str(&mut self) -> Result<String, std::io::Error>;
+}
+
+impl ReadToString for std::fs::File {
+    fn read_to_str(&mut self) -> Result<String, std::io::Error> {
+        let mut x = String::new();
+        match self.read_to_string(&mut x) {
+            Ok(_) => Ok(x),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+fn read_file(filename: &str) -> Option<String> {
+    match File::open(filename).and_then(|mut x| x.read_to_str()) {
+        Ok(x) => Some(x),
+        Err(e) => {
+            println!("{}", e);
+            None
+        }
+    }
+}
+
+fn main() {
+    let matches = App::new("Sudoku solver")
+        .version("1.0")
+        .author("Hannah")
+        .about("solves sudoku puzzles")
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Sets the input file to use")
+                .required(true)
+                .index(1),
+        ).get_matches();
+    matches
+        .value_of("INPUT")
+        .map(|x| {
+            println!("Using input file: {}", x);
+            x
+        }).and_then(read_file)
+        .and_then(|x| match serde_json::from_str(&x) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                println!("{:?}", e);
+                None
+            }
+        }).map(|x| {
+            println!("{:?}", x);
+        });
 }

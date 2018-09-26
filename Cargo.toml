@@ -5,3 +5,5 @@ authors = ["Hannah Ellis <hannahellis4242@gmail.com>"]
 
 [dependencies]
 itertools = "0.7.8"
+clap = "2.32.0"
+serde_json = "1.0.31"
