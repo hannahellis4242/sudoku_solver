@@ -1,5 +1,5 @@
 extern crate itertools;
-mod sudoku ;
+mod sudoku;
 
 fn main() {
     {
