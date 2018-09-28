@@ -30,54 +30,57 @@ fn read_file(filename: &str) -> Option<String> {
     }
 }
 
-fn parse_value(s: &str) -> Option<char> {
-    s.chars()
-        .fold(None, |acc, x| if acc.is_none() { Some(x) } else { acc })
-        .and_then(|x| if x == '-' { None } else { Some(x) })
-}
-
-fn json_to_sudoku(j: &serde_json::Value) -> Option<sudoku::Problem> {
-    let inputs = j["grid"]["height"]
-        .as_u64()
-        .map(|x| x as usize)
-        .and_then(|height| {
-            j["grid"]["width"]
-                .as_u64()
-                .map(|x| x as usize)
-                .map(|width| (height, width))
-        }).and_then(|(height, width)| {
-            j["grid"]["square"]
-                .as_u64()
-                .map(|x| x as usize)
-                .map(|square| (height, width, square))
-        }).and_then(|(height, width, square)| {
-            j["grid"]["values"]
-                .as_array()
-                .map(|x| {
-                    x.iter()
-                        .filter_map(|y| y.as_str().and_then(parse_value))
-                        .collect::<Vec<char>>()
-                }).map(|grid_values| (height, width, square, grid_values))
-        }).and_then(|(height, width, square, grid_values)| {
-            j["values"]
-                .as_array()
-                .map(|x| {
-                    x.iter()
-                        .map(|y| y.as_str().and_then(parse_value))
-                        .collect::<Vec<Option<char>>>()
-                }).map(|values| (height, width, square, grid_values, values))
-        });
-    inputs.map(
-        |(height, width, square, grid_values, values)| sudoku::Problem {
-            grid: sudoku::GridInfo {
-                height: height,
-                width: width,
-                square: square,
-                values: grid_values,
+mod json_to_sudoku {
+    use serde_json;
+    fn parse_value(s: &str) -> Option<char> {
+        s.chars()
+            .fold(None, |acc, x| if acc.is_none() { Some(x) } else { acc })
+            .and_then(|x| if x == '-' { None } else { Some(x) })
+    }
+    use sudoku;
+    pub fn parse(j: &serde_json::Value) -> Option<sudoku::Problem> {
+        let inputs = j["grid"]["height"]
+            .as_u64()
+            .map(|x| x as usize)
+            .and_then(|height| {
+                j["grid"]["width"]
+                    .as_u64()
+                    .map(|x| x as usize)
+                    .map(|width| (height, width))
+            }).and_then(|(height, width)| {
+                j["grid"]["square"]
+                    .as_u64()
+                    .map(|x| x as usize)
+                    .map(|square| (height, width, square))
+            }).and_then(|(height, width, square)| {
+                j["grid"]["values"]
+                    .as_array()
+                    .map(|x| {
+                        x.iter()
+                            .filter_map(|y| y.as_str().and_then(parse_value))
+                            .collect::<Vec<char>>()
+                    }).map(|grid_values| (height, width, square, grid_values))
+            }).and_then(|(height, width, square, grid_values)| {
+                j["values"]
+                    .as_array()
+                    .map(|x| {
+                        x.iter()
+                            .map(|y| y.as_str().and_then(parse_value))
+                            .collect::<Vec<Option<char>>>()
+                    }).map(|values| (height, width, square, grid_values, values))
+            });
+        inputs.map(
+            |(height, width, square, grid_values, values)| sudoku::Problem {
+                grid: sudoku::GridInfo {
+                    height: height,
+                    width: width,
+                    square: square,
+                    values: grid_values,
+                },
+                values: values,
             },
-            values: values,
-        },
-    )
+        )
+    }
 }
 
 fn main() {
@@ -100,7 +103,7 @@ fn main() {
                 println!("{:?}", e);
                 None
             }
-        }).and_then(|x: serde_json::Value| json_to_sudoku(&x))
+        }).and_then(|x: serde_json::Value| json_to_sudoku::parse(&x))
         .map(|problem| sudoku::solve(&problem))
         .map(move |solutions| println!("{:?}", solutions));
 }
