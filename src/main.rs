@@ -130,6 +130,38 @@ fn read_file(filename: &str) -> Option<String> {
     }
 }
 
+fn parse_value(s: &str) -> Option<char> {
+    s.chars()
+        .fold(None, |acc, x| if acc.is_none() { Some(x) } else { acc })
+        .and_then(|x| if x == '-' { None } else { Some(x) })
+}
+
+fn json_to_sudoku(j: &serde_json::Value) -> sudoku::Problem {
+    let g = sudoku::GridInfo {
+        height: j["grid"]["height"].as_u64().map(|x| x as usize).unwrap(),
+        width: j["grid"]["width"].as_u64().map(|x| x as usize).unwrap(),
+        square: j["grid"]["square"].as_u64().map(|x| x as usize).unwrap(),
+        values: j["grid"]["values"]
+            .as_array()
+            .map(|x| {
+                x.iter()
+                    .filter_map(|y| y.as_str().and_then(parse_value))
+                    .collect::<Vec<char>>()
+            }).unwrap(),
+    };
+    let values = j["values"]
+        .as_array()
+        .map(|x| {
+            x.iter()
+                .map(|y| y.as_str().and_then(parse_value))
+                .collect::<Vec<Option<char>>>()
+        }).unwrap();
+    sudoku::Problem {
+        grid: g,
+        values: values,
+    }
+}
+
 fn main() {
     let matches = App::new("Sudoku solver")
         .version("1.0")
@@ -153,7 +185,7 @@ fn main() {
                 println!("{:?}", e);
                 None
             }
-        }).map(|x| {
+        }).map(|x: serde_json::Value| {
             println!("{:?}", x);
         });
 }
