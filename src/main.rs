@@ -1,35 +1,18 @@
-extern crate clap;
+extern crate futures;
+extern crate hyper;
 extern crate itertools;
+#[macro_use]
 extern crate serde_json;
 extern crate valico;
+
+use hyper::server::{Request, Response, Service};
+use hyper::Method::Get;
+use hyper::{Chunk, StatusCode};
+
+use futures::future::{Future, FutureResult};
+use futures::Stream;
+
 mod sudoku;
-use clap::{App, Arg};
-use std::fs::File;
-use std::io::prelude::*;
-
-trait ReadToString {
-    fn read_to_str(&mut self) -> Result<String, std::io::Error>;
-}
-
-impl ReadToString for std::fs::File {
-    fn read_to_str(&mut self) -> Result<String, std::io::Error> {
-        let mut x = String::new();
-        match self.read_to_string(&mut x) {
-            Ok(_) => Ok(x),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-fn read_file(filename: &str) -> Option<String> {
-    match File::open(filename).and_then(|mut x| x.read_to_str()) {
-        Ok(x) => Some(x),
-        Err(e) => {
-            println!("{}", e);
-            None
-        }
-    }
-}
 
 mod json_to_sudoku {
     use serde_json;
@@ -38,7 +21,7 @@ mod json_to_sudoku {
             .fold(None, |acc, x| if acc.is_none() { Some(x) } else { acc })
             .and_then(|x| if x == '-' { None } else { Some(x) })
     }
-    pub fn validate_json(j: &serde_json::Value) -> Result<serde_json::Value, String> {
+    pub fn validate_json(j: serde_json::Value) -> Result<serde_json::Value, String> {
         use valico::json_dsl;
         let params = json_dsl::Builder::build(|params| {
             params.req_nested("grid", json_dsl::object(), |params| {
@@ -58,8 +41,8 @@ mod json_to_sudoku {
         }
     }
     use sudoku;
-    pub fn parse(j: &serde_json::Value) -> Option<sudoku::Problem> {
-        let inputs = j["grid"]["height"]
+    pub fn parse(j: serde_json::Value) -> Result<sudoku::Problem, String> {
+        j["grid"]["height"]
             .as_u64()
             .map(|x| x as usize)
             .and_then(|height| {
@@ -88,63 +71,114 @@ mod json_to_sudoku {
                             .map(|y| y.as_str().and_then(parse_value))
                             .collect::<Vec<Option<char>>>()
                     }).map(|values| (height, width, square, grid_values, values))
-            });
-        inputs.map(
-            |(height, width, square, grid_values, values)| sudoku::Problem {
-                grid: sudoku::GridInfo {
-                    height: height,
-                    width: width,
-                    square: square,
-                    values: grid_values,
+            }).map(
+                |(height, width, square, grid_values, values)| sudoku::Problem {
+                    grid: sudoku::GridInfo {
+                        height: height,
+                        width: width,
+                        square: square,
+                        values: grid_values,
+                    },
+                    values: values,
                 },
-                values: values,
-            },
-        )
+            ).ok_or("could not parse".to_string())
     }
-    pub fn validate_problem(p: &sudoku::Problem) -> Result<sudoku::Problem, String> {
+    pub fn validate_problem(p: sudoku::Problem) -> Result<sudoku::Problem, String> {
         //need to ensure that the given values is complete
         let size = p.grid.width * p.grid.height;
         if p.values.len() == size {
-            Ok((*p).clone())
+            Ok(p)
         } else {
             Err(format!("Given grid information spesifies a grid of {} by {} requiring {} values, number of values given is {}.",p.grid.width,p.grid.height,size,p.values.len()))
         }
     }
 }
 
+fn parse_form(form_chunk: Chunk) -> FutureResult<String, hyper::Error> {
+    use serde_json::Value;
+    match serde_json::from_slice::<Value>(&form_chunk)
+        .map_err(|x| format!("{}", x))
+        .and_then(json_to_sudoku::validate_json)
+        .and_then(json_to_sudoku::parse)
+        .and_then(json_to_sudoku::validate_problem)
+        .map(sudoku::solve)
+        .and_then(move |solutions| match serde_json::to_string(&solutions)
+        {
+            Ok(v)=>Ok(v),
+            Err(e) => Err(format!("{}",e)),
+
+        })
+    {
+        Ok(result) => futures::future::ok(result),
+        Err(e) => futures::future::ok(e),
+    }
+}
+
+fn make_error_response(error_message: &str) -> FutureResult<hyper::Response, hyper::Error> {
+    use hyper::header::ContentLength;
+    use hyper::header::ContentType;
+    let payload = json!({ "error": error_message }).to_string();
+    let response = Response::new()
+        .with_status(StatusCode::InternalServerError)
+        .with_header(ContentLength(payload.len() as u64))
+        .with_header(ContentType::json())
+        .with_body(payload);
+    println!("{:?}", response);
+    futures::future::ok(response)
+}
+
+fn make_post_response(
+    result: Result<String, hyper::Error>,
+) -> FutureResult<hyper::Response, hyper::Error> {
+    use hyper::header::ContentLength;
+    use hyper::header::ContentType;
+    use std::error::Error;
+    match result {
+        Ok(payload) => {
+            let response = Response::new()
+                .with_header(ContentLength(payload.len() as u64))
+                .with_header(ContentType::json())
+                .with_body(payload);
+            println!("{:?}", response);
+            futures::future::ok(response)
+        }
+        Err(error) => make_error_response(error.description()),
+    }
+}
+
+struct Microservice;
+
+impl Service for Microservice {
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+
+    fn call(&self, request: Request) -> Self::Future {
+        println!("Microservice received a request: {:?}", request);
+        match (request.method(), request.path()) {
+            (&Get, "/") => {
+                let future = request
+                    .body()
+                    .concat2()
+                    .and_then(parse_form)
+                    .then(make_post_response);
+                Box::new(future)
+            }
+            _ => Box::new(futures::future::ok(
+                Response::new().with_status(StatusCode::NotFound),
+            )),
+        }
+    }
+}
+
 fn main() {
-    let matches = App::new("Sudoku solver")
-        .version("1.0")
-        .author("Hannah")
-        .about("solves sudoku puzzles")
-        .arg(
-            Arg::with_name("INPUT")
-                .help("Sets the input file to use")
-                .required(true)
-                .index(1),
-        ).get_matches();
-    matches
-        .value_of("INPUT")
-        .and_then(read_file)
-        .and_then(|x| match serde_json::from_str(&x) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                println!("{:?}", e);
-                None
-            }
-        }).and_then(|x| match json_to_sudoku::validate_json(&x) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                println!("{:?}", e);
-                None
-            }
-        }).and_then(|x| json_to_sudoku::parse(&x))
-        .and_then(|x| match json_to_sudoku::validate_problem(&x) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                println!("{:?}", e);
-                None
-            }
-        }).map(|problem| sudoku::solve(&problem))
-        .map(move |solutions| println!("{:?}", solutions));
+    let _s = "127.0.0.1:8080".parse().map(|address| {
+        hyper::server::Http::new()
+            .bind(&address, || Ok(Microservice {}))
+            .map(|server| {
+                println!("Running microservice at {}", address);
+                server.run().unwrap();
+            })
+    });
 }
