@@ -101,6 +101,15 @@ mod json_to_sudoku {
             },
         )
     }
+    pub fn validate_problem(p: &sudoku::Problem) -> Result<sudoku::Problem, String> {
+        //need to ensure that the given values is complete
+        let size = p.grid.width * p.grid.height;
+        if p.values.len() == size {
+            Ok((*p).clone())
+        } else {
+            Err(format!("Given grid information spesifies a grid of {} by {} requiring {} values, number of values given is {}.",p.grid.width,p.grid.height,size,p.values.len()))
+        }
+    }
 }
 
 fn main() {
@@ -129,7 +138,13 @@ fn main() {
                 println!("{:?}", e);
                 None
             }
-        }).and_then(|x: serde_json::Value| json_to_sudoku::parse(&x))
-        .map(|problem| sudoku::solve(&problem))
+        }).and_then(|x| json_to_sudoku::parse(&x))
+        .and_then(|x| match json_to_sudoku::validate_problem(&x) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                println!("{:?}", e);
+                None
+            }
+        }).map(|problem| sudoku::solve(&problem))
         .map(move |solutions| println!("{:?}", solutions));
 }

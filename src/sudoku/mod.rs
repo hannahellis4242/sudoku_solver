@@ -5,10 +5,29 @@ pub struct GridInfo {
     pub values: Vec<char>,
 }
 
+impl Clone for GridInfo {
+    fn clone(&self) -> GridInfo {
+        GridInfo {
+            width: self.width,
+            height: self.height,
+            square: self.square,
+            values: self.values.clone(),
+        }
+    }
+}
 pub struct Problem {
     pub grid: GridInfo,
     pub values: Vec<Option<char>>,
 }
+impl Clone for Problem {
+    fn clone(&self) -> Problem {
+        Problem {
+            grid: self.grid.clone(),
+            values: self.values.clone(),
+        }
+    }
+}
+
 mod helper;
 mod rule;
 mod utils;
