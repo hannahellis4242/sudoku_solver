@@ -123,7 +123,6 @@ fn make_error_response(error_message: &str) -> FutureResult<hyper::Response, hyp
         .with_header(ContentLength(payload.len() as u64))
         .with_header(ContentType::json())
         .with_body(payload);
-    println!("{:?}", response);
     futures::future::ok(response)
 }
 
@@ -139,7 +138,6 @@ fn make_post_response(
                 .with_header(ContentLength(payload.len() as u64))
                 .with_header(ContentType::json())
                 .with_body(payload);
-            println!("{:?}", response);
             futures::future::ok(response)
         }
         Err(error) => make_error_response(error.description()),
@@ -155,7 +153,6 @@ impl Service for Microservice {
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, request: Request) -> Self::Future {
-        println!("Microservice received a request: {:?}", request);
         match (request.method(), request.path()) {
             (&Get, "/") => {
                 let future = request
