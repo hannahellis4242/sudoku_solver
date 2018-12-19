@@ -1,5 +1,4 @@
 extern crate clap;
-extern crate itertools;
 
 mod sudoku;
 

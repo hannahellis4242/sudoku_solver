@@ -1,3 +1,4 @@
+extern crate itertools;
 enum Rule {
     Row(usize),
     Column(usize),
@@ -6,7 +7,7 @@ enum Rule {
 
 use sudoku::GridInfo;
 fn generate_rule(r: &Rule, g: &GridInfo) -> Vec<(usize, usize)> {
-    use itertools::Itertools;
+    use sudoku::rule::itertools::Itertools;
     match r {
         &Rule::Row(i) => (0..g.width)
             .map(|j| (i, j))
@@ -63,7 +64,7 @@ fn check_rule(g: &[Option<char>], r: &Rule, gi: &GridInfo) -> bool {
 pub fn check_rules(g: &[Option<char>], gi: &GridInfo) -> u32 {
     let row_rules = (0..9).map(|x| Rule::Row(x));
     let column_rules = (0..9).map(|x| Rule::Column(x));
-    use itertools::Itertools;
+    use sudoku::rule::itertools::Itertools;
     let square_rules = (0..3)
         .cartesian_product(0..3)
         .map(|(x, y)| Rule::Square(x, y));
