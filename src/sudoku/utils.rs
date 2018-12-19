@@ -18,7 +18,8 @@ where
         .map(|x| match x {
             Some(value) => Some((*value).clone()),
             None => y_iter.next(),
-        }).collect::<Vec<Option<T>>>()
+        })
+        .collect::<Vec<Option<T>>>()
 }
 pub fn append<T>(xs: &[T], y: &T) -> Vec<T>
 where

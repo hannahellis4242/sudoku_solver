@@ -29,6 +29,7 @@ impl Clone for Problem {
 }
 
 mod helper;
+pub mod json;
 mod rule;
 mod utils;
 pub fn solve(problem: Problem) -> Vec<Vec<char>> {
