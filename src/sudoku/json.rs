@@ -1,3 +1,4 @@
+extern crate conv;
 extern crate serde_json;
 extern crate valico;
 
@@ -102,7 +103,80 @@ pub fn read_problem(json_text: &str) -> Result<sudoku::Problem, String> {
         .and_then(validate_problem)
 }
 
-//fn grid_to_json()
-/*pub fn write_solution(p:&Problem,s:Vec<char>)->String{
+fn char_to_json(cs: &char) -> sudoku::json::serde_json::Value {
+    sudoku::json::serde_json::Value::String(cs.to_string())
+}
 
-}*/
+fn usize_to_json(u: usize) -> Option<sudoku::json::serde_json::Value> {
+    use sudoku::json::conv::*;
+    f64::value_from(u)
+        .ok()
+        .and_then(|f| sudoku::json::serde_json::Number::from_f64(f))
+        .map(|n| sudoku::json::serde_json::Value::Number(n))
+}
+
+fn grid_to_json(g: &sudoku::GridInfo) -> Option<sudoku::json::serde_json::Value> {
+    Some(sudoku::json::serde_json::Map::new())
+        .and_then(|mut map| {
+            usize_to_json(g.width).map(|value| {
+                map.insert(String::from("width"), value);
+                map
+            })
+        })
+        .and_then(|mut map| {
+            usize_to_json(g.height).map(|value| {
+                map.insert(String::from("height"), value);
+                map
+            })
+        })
+        .and_then(|mut map| {
+            usize_to_json(g.square).map(|value| {
+                map.insert(String::from("square"), value);
+                map
+            })
+        })
+        .map(|mut map| {
+            map.insert(
+                String::from("values"),
+                sudoku::json::serde_json::Value::Array(
+                    g.values
+                        .iter()
+                        .map(char_to_json)
+                        .collect::<Vec<sudoku::json::serde_json::Value>>(),
+                ),
+            );
+            map
+        })
+        .map(|map| sudoku::json::serde_json::Value::Object(map))
+}
+
+fn solution_to_json(
+    problem: &sudoku::Problem,
+    solution: &[char],
+) -> Option<sudoku::json::serde_json::Value> {
+    Some(sudoku::json::serde_json::Map::new())
+        .and_then(|mut map| {
+            grid_to_json(&problem.grid).map(|value| {
+                map.insert(String::from("grid"), value);
+                map
+            })
+        })
+        .map(|mut map| {
+            map.insert(
+                String::from("values"),
+                sudoku::json::serde_json::Value::Array(
+                    solution
+                        .iter()
+                        .map(char_to_json)
+                        .collect::<Vec<sudoku::json::serde_json::Value>>(),
+                ),
+            );
+            map
+        })
+        .map(|map| sudoku::json::serde_json::Value::Object(map))
+}
+pub fn write_solution(p: &sudoku::Problem, s: &[char]) -> String {
+    solution_to_json(p, s)
+        .map(|json| json.to_string())
+        .unwrap_or(String::new())
+}

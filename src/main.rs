@@ -40,10 +40,11 @@ fn main() {
                     .map_err(|e| std::io::Error::new(ErrorKind::Other, e))
             })
             .map(|p| (p.clone(), sudoku::solve(p)))
-            .map(|(_, solutions)| {
+            .map(|(problem, solutions)| {
                 solutions
                     .iter()
-                    .for_each(|solution| println!("{:?}", solution))
+                    .map(|solution| sudoku::json::write_solution(&problem, solution.as_slice()))
+                    .for_each(|text| println!("{}", text))
             })
             .map_err(|e| println!("{}", e))
             .unwrap_or(()), // solve was used
