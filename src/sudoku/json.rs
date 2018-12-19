@@ -1,10 +1,8 @@
-//extern crate serde_json;
-//extern crate valico;
-
-use serde_json;
+extern crate serde_json;
+extern crate valico;
 
 fn json_error_to_str(e: serde_json::error::Error) -> String {
-    use serde_json::error::Category;
+    use sudoku::json::serde_json::error::Category;
     match e.classify() {
         Category::Io => format!("failed to read bytes into IO stream"),
         Category::Syntax => format!("syntax error at line {} column {}", e.line(), e.column()),
@@ -18,7 +16,7 @@ fn parse_value(s: &str) -> Option<char> {
         .and_then(|x| if x == '-' { None } else { Some(x) })
 }
 fn validate_json(j: serde_json::Value) -> Result<serde_json::Value, String> {
-    use valico::json_dsl;
+    use sudoku::json::valico::json_dsl;
     let params = json_dsl::Builder::build(|params| {
         params.req_nested("grid", json_dsl::object(), |params| {
             params.req_typed("height", json_dsl::u64());
@@ -96,7 +94,7 @@ fn validate_problem(p: sudoku::Problem) -> Result<sudoku::Problem, String> {
     }
 }
 pub fn read_problem(json_text: &str) -> Result<sudoku::Problem, String> {
-    use serde_json::Value;
+    use sudoku::json::serde_json::Value;
     serde_json::from_str::<Value>(&json_text)
         .map_err(json_error_to_str)
         .and_then(validate_json)
